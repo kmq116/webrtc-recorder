@@ -29,7 +29,12 @@ async function getMicrophoneStream() {
       document.getElementById("deviceList") as HTMLSelectElement
     ).value;
     const constraints = {
-      audio: { deviceId: deviceId ? { exact: deviceId } : undefined },
+      audio: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+      },
     };
     audioStream = await navigator.mediaDevices.getUserMedia(constraints);
     console.log("获取麦克风音频流成功");
