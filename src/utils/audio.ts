@@ -1,18 +1,35 @@
 const audioContext = new AudioContext();
-const audioBuffer = await fetch("./test.mp3")
-  .then((response) => response.arrayBuffer())
-  .then((arrayBuffer) => {
-    console.log(arrayBuffer);
-    audioContext
-      .decodeAudioData(arrayBuffer)
-      .then((audioBuffer) => {
-        console.log(audioBuffer);
-      })
-      .catch((error) => {
-        console.warn(error);
-      });
-  });
+let audioBuffer;
 
+async function setupAudio() {
+  try {
+    const response = await fetch("./test.mp3");
+    const arrayBuffer = await response.arrayBuffer();
+    audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    console.log({ audioBuffer });
+
+    // 设置分析器和绘图
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    // ... (保留绘图相关代码) ...
+
+    // 创建音频源并连接
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(analyser);
+    analyser.connect(audioContext.destination);
+    source.start();
+
+    // 开始绘制
+    draw();
+  } catch (error) {
+    console.warn("音频加载或解码出错:", error);
+  }
+}
+setupAudio();
 const analyser = audioContext.createAnalyser();
 analyser.fftSize = 2048;
 const bufferLength = analyser.frequencyBinCount;
