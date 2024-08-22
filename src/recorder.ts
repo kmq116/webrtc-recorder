@@ -1,6 +1,7 @@
-let mediaRecorder;
-let audioChunks = [];
-let audioStream;
+let audioContext: AudioContext;
+let sourceNode: MediaStreamAudioSourceNode;
+let mediaRecorder: MediaRecorder;
+let audioChunks: Blob[] = [];
 
 // 获取可用的音频输入设备
 async function getAudioInputDevices() {
@@ -36,9 +37,9 @@ async function getMicrophoneStream() {
         autoGainControl: true,
       },
     };
-    audioStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     console.log("获取麦克风音频流成功");
-    return audioStream;
+    return stream;
   } catch (error) {
     console.error("获取麦克风音频流失败:", error);
   }
@@ -46,38 +47,46 @@ async function getMicrophoneStream() {
 
 // 开始录音和播放
 async function startRecordAndPlay() {
-  const stream = await getMicrophoneStream();
-  console.log("stream", stream);
-  if (!stream) return;
+  audioChunks = [];
+  try {
+    const stream = await getMicrophoneStream();
+    if (!stream) return;
 
-  // 创建MediaRecorder对象
-  mediaRecorder = new MediaRecorder(stream);
+    audioContext = new AudioContext();
+    sourceNode = audioContext.createMediaStreamSource(stream);
 
-  mediaRecorder.ondataavailable = (event) => {
-    audioChunks.push(event.data);
-    console.log("收到音频数据块，大小：", event.data.size);
-  };
+    // 创建一个延迟节点，用于模拟回声效果
+    const delayNode = audioContext.createDelay(0.1);
+    delayNode.delayTime.value = 0.1; // 100毫秒延迟
 
-  mediaRecorder.onstop = () => {
-    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-    const audioUrl = URL.createObjectURL(audioBlob);
-    console.log("录音结束，音频URL：", audioUrl);
+    // 创建一个增益节点来控制音量
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = 0.5; // 设置音量为50%，可以根据需要调整
 
-    // 创建音频元素并播放
-    const audio = new Audio(audioUrl);
-    audio
-      .play()
-      .then(() => {
-        console.log("开始播放录音");
-      })
-      .catch((error) => {
-        console.error("播放录音失败：", error);
-      });
-  };
+    // 连接节点：源节点 -> 延迟节点 -> 增益节点 -> 输出
+    sourceNode.connect(delayNode);
+    delayNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
 
-  // 开始录音
-  mediaRecorder.start();
-  console.log("开始录音");
+    // 创建MediaRecorder对象
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      console.log("录音结束，音频URL：", audioUrl);
+    };
+
+    // 开始录音
+    mediaRecorder.start(100); // 每100毫秒生成一个数据块
+    console.log("开始录音和播放");
+  } catch (error) {
+    console.error("启动录音和播放失败:", error);
+  }
 }
 
 // 停止录音和播放
@@ -87,10 +96,15 @@ function stopRecordAndPlay() {
     console.log("停止录音");
   }
 
-  if (audioStream) {
-    audioStream.getTracks().forEach((track) => track.stop());
-    console.log("停止音频流");
+  if (sourceNode) {
+    sourceNode.disconnect();
   }
+
+  if (audioContext) {
+    audioContext.close();
+  }
+
+  console.log("停止播放");
 }
 
 // 初始化
