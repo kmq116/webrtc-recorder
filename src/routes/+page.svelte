@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 
 	let audioContext: AudioContext;
@@ -12,11 +12,13 @@
 	let isRecording: boolean = false;
 	let rawAudioChunks: Int16Array[] = [];
 
+	let deviceChangeHandler: () => void;
+
 	async function getAudioInputDevices() {
 		if (browser) {
 			const allDevices = await navigator.mediaDevices.enumerateDevices();
 			devices = allDevices.filter((device) => device.kind === 'audioinput');
-			if (devices.length > 0) {
+			if (devices.length > 0 && !selectedDeviceId) {
 				selectedDeviceId = devices[0].deviceId;
 			}
 		}
@@ -100,6 +102,18 @@
 	onMount(async () => {
 		if (browser) {
 			await getAudioInputDevices();
+			
+			deviceChangeHandler = () => {
+				getAudioInputDevices();
+			};
+			
+			navigator.mediaDevices.addEventListener('devicechange', deviceChangeHandler);
+		}
+	});
+
+	onDestroy(() => {
+		if (browser && deviceChangeHandler) {
+			navigator.mediaDevices.removeEventListener('devicechange', deviceChangeHandler);
 		}
 	});
 
