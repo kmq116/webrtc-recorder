@@ -102,11 +102,11 @@
 	onMount(async () => {
 		if (browser) {
 			await getAudioInputDevices();
-			
+
 			deviceChangeHandler = () => {
 				getAudioInputDevices();
 			};
-			
+
 			navigator.mediaDevices.addEventListener('devicechange', deviceChangeHandler);
 		}
 	});
@@ -116,6 +116,28 @@
 			navigator.mediaDevices.removeEventListener('devicechange', deviceChangeHandler);
 		}
 	});
+	let __recorder: any;
+	async function startRecordRtc() {
+		if (browser) {
+			let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+			console.log(RecordRTC);
+
+			__recorder = new window.RecordRTC(stream, {
+				type: 'audio',
+				ondataavailable: function (blob) {
+					console.log(blob);
+				}
+			});
+			__recorder.startRecording();
+		}
+	}
+	function stopRecordRtc() {
+		if (__recorder) {
+			__recorder.stopRecording((blob) => {
+				console.log(blob);
+			});
+		}
+	}
 
 	async function startRecordRaw() {
 		if (!browser) return;
@@ -204,3 +226,6 @@
 
 <button on:click={startRecordRaw}>录制 raw 文件</button>
 <button on:click={stopRecordRaw}>停止录制 raw 文件</button>
+
+<button on:click={startRecordRtc}>开始 RecorderRtc 文件</button>
+<button on:click={stopRecordRtc}>停止录制 RecorderRtc 文件</button>
